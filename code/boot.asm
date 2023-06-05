@@ -18,7 +18,7 @@ LABEL_DESC_CODE32: Descriptor    0, SegCode32Len-1, DA_C+DA_32; 非一致代码�
 LABEL_DESC_CODE16: Descriptor    0,         0ffffh, DA_C      ; 非一致代码段, 16
 LABEL_DESC_DATA:   Descriptor    0,      DataLen-1, DA_DRW    ; Data
 LABEL_DESC_STACK:  Descriptor    0,     TopOfStack, DA_DRWA+DA_32; Stack, 32 位
-LABEL_DESC_TEST:   Descriptor 0500000h,     0ffffh, DA_DRW
+LABEL_DESC_LDT:    Descriptor       0,        LDTLen - 1, DA_LDT	; 在全局描述表中添加指向LDT的描述符
 LABEL_DESC_VIDEO:  Descriptor  0B8000h,     0ffffh, DA_DRW    ; 显存首地址
 ; GDT 结束
 
@@ -32,7 +32,7 @@ SelectorCode32		equ	LABEL_DESC_CODE32	- LABEL_GDT
 SelectorCode16		equ	LABEL_DESC_CODE16	- LABEL_GDT
 SelectorData		equ	LABEL_DESC_DATA		- LABEL_GDT
 SelectorStack		equ	LABEL_DESC_STACK	- LABEL_GDT
-SelectorTest		equ	LABEL_DESC_TEST		- LABEL_GDT
+SelectorLDT			equ	LABEL_DESC_LDT		- LABEL_GDT		;LDT表的选择子
 SelectorVideo		equ	LABEL_DESC_VIDEO	- LABEL_GDT
 ; END of [SECTION .gdt]
 
@@ -115,6 +115,27 @@ LABEL_BEGIN:
 	mov	byte [LABEL_DESC_STACK + 4], al
 	mov	byte [LABEL_DESC_STACK + 7], ah
 
+	; 初始化 LDT 在 GDT 中的描述符,把LABEL_LDT的地址写入段基址[LABEL_DESC_LDT]
+	xor	eax, eax
+	mov	ax, ds
+	shl	eax, 4
+	add	eax, LABEL_LDT
+	mov	word [LABEL_DESC_LDT + 2], ax
+	shr	eax, 16
+	mov	byte [LABEL_DESC_LDT + 4], al
+	mov	byte [LABEL_DESC_LDT + 7], ah
+
+	; 初始化 LDT 中的描述符
+	xor	eax, eax
+	mov	ax, ds
+	shl	eax, 4
+	add	eax, LABEL_CODE_A
+	mov	word [LABEL_LDT_DESC_CODEA + 2], ax
+	shr	eax, 16
+	mov	byte [LABEL_LDT_DESC_CODEA + 4], al
+	mov	byte [LABEL_LDT_DESC_CODEA + 7], ah
+
+
 	; 维护好GdtPtr, 为加载 GDTR 作准备
 	xor	eax, eax
 	mov	ax, ds
@@ -139,7 +160,7 @@ LABEL_BEGIN:
 	mov	cr0, eax
 
 	; 利用32位代码段的选择子进行跳转,真正进入保护模式
-	jmp	dword SelectorCode32:0	; 执行这一句会把 SelectorCode32 装入 cs, 并跳转到 Code32Selector:0  处
+	jmp	dword SelectorCode32:0	; 执行这一句会把 SelectorCode32 装入 cs, 并跳转到 LABEL_SEG_CODE32:0  处
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -151,14 +172,14 @@ LABEL_REAL_ENTRY:		; 从保护模式跳回到实模式就到了这里
 
 	mov	sp, [SPValueInRealMode]		;回复栈指针
 
-	in	al, 92h		; `.
-	and	al, 11111101b	;  | 关闭 A20 地址线
-	out	92h, al		; /
+	in	al, 92h			; ┓
+	and	al, 11111101b	; ┣ 关闭 A20 地址线
+	out	92h, al			; ┛
 
 	sti			; 开中断
 
-	mov	ax, 4c00h	; `.
-	int	21h		; /  回到 DOS
+	mov	ax, 4c00h	; ┓
+	int	21h			; ┛回到 DOS
 ; END of [SECTION .s16]
 
 
@@ -169,8 +190,7 @@ LABEL_SEG_CODE32:
 	;在32位保护模式下,就要用选择子寻址啦!
 	mov	ax, SelectorData
 	mov	ds, ax			; 数据段选择子
-	mov	ax, SelectorTest
-	mov	es, ax			; 测试段选择子
+
 	mov	ax, SelectorVideo
 	mov	gs, ax			; 视频段选择子
 
@@ -198,97 +218,12 @@ LABEL_SEG_CODE32:
 	add	edi, 2
 	jmp	.1
 .2:	; 显示完毕
-
 	call	DispReturn
-	;读内存,展示,回车
-	call	TestRead
-	;写内存
-	call	TestWrite
-	;读内存,展示,回车
-	call	TestRead
+	; LDT表在GDT的选择子载入LDTR寄存器
+	mov	ax, SelectorLDT
+	lldt	ax
 
-	; 到此停止
-	jmp	SelectorCode16:0
-
-; ------------------------------------------------------------------------
-TestRead:
-	xor	esi, esi
-	mov	ecx, 8
-.loop:
-	mov	al, [es:esi]
-	call	DispAL
-	inc	esi
-	loop	.loop
-
-	call	DispReturn
-
-	ret
-; TestRead 结束-----------------------------------------------------------
-
-
-; ------------------------------------------------------------------------
-TestWrite:
-	push	esi
-	push	edi
-	xor	esi, esi
-	xor	edi, edi
-	mov	esi, OffsetStrTest	; 源数据偏移
-	cld
-.1:	;不断循环,将esi地址段的字符放入目标内存,直到esi全0(一次一个Byte)
-	lodsb	;从esi 指向的源地址中逐一读取一个Byte,送入AL 中,esi++
-	test	al, al	;两个操作数的对应位之间进行 AND 操作，并根据运算结果设置符号标志位、零标志位和奇偶标志位
-	jz	.2
-	mov	[es:edi], al
-	inc	edi
-	jmp	.1
-.2:
-
-	pop	edi
-	pop	esi
-
-	ret
-; TestWrite 结束----------------------------------------------------------
-
-
-; ------------------------------------------------------------------------
-; 显示 AL 中的数字
-; 默认地:
-;	数字已经存在 AL 中
-;	edi 始终指向要显示的下一个字符的位置
-; 被改变的寄存器:
-;	ax, edi
-; ------------------------------------------------------------------------
-DispAL:
-	push	ecx
-	push	edx
-
-	mov	ah, 0Ch			; 0000: 黑底    1100: 红字
-	mov	dl, al
-	shr	al, 4
-	mov	ecx, 2
-.begin:
-	and	al, 01111b
-	cmp	al, 9
-	ja	.1
-	add	al, '0'
-	jmp	.2
-.1:
-	sub	al, 0Ah
-	add	al, 'A'
-.2:
-	mov	[gs:edi], ax
-	add	edi, 2
-
-	mov	al, dl
-	loop	.begin
-	add	edi, 2
-
-	pop	edx
-	pop	ecx
-
-	ret
-; DispAL 结束-------------------------------------------------------------
-
+	jmp	SelectorLDTCodeA:0	; 利用LDT表中CodeA段的选择子，直接跳入局部任务
 
 ; 此函数用于打出回车段效果--------------------------------------------------------------
 DispReturn:
@@ -336,3 +271,35 @@ LABEL_GO_BACK_TO_REAL:
 Code16Len	equ	$ - LABEL_SEG_CODE16
 
 ; END of [SECTION .s16code]
+
+; LDT 表段
+[SECTION .ldt]
+ALIGN	32
+LABEL_LDT:
+;                            段基址       段界限      属性
+LABEL_LDT_DESC_CODEA: Descriptor 0, CodeALen - 1, DA_C + DA_32 ; Code, 32 位
+
+LDTLen		equ	$ - LABEL_LDT
+
+; LDT 选择子
+SelectorLDTCodeA	equ	LABEL_LDT_DESC_CODEA	- LABEL_LDT + SA_TIL
+; END of [SECTION .ldt]
+
+
+; CodeA (LDT, 32 位代码段)
+[SECTION .la]
+ALIGN	32
+[BITS	32]
+LABEL_CODE_A:
+	mov	ax, SelectorVideo
+	mov	gs, ax			; 视频段选择子(目的)
+
+	mov	edi, (80 * 12 + 0) * 2	; 屏幕第 10 行, 第 0 列。
+	mov	ah, 0Ch			; 0000: 黑底    1100: 红字
+	mov	al, 'L'
+	mov	[gs:edi], ax
+
+	; 准备经由16位代码段跳回实模式
+	jmp	SelectorCode16:0
+CodeALen	equ	$ - LABEL_CODE_A
+; END of [SECTION .la]
