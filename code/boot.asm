@@ -16,10 +16,13 @@ LABEL_GDT:         Descriptor    0,              0, 0         ; 空描述符
 LABEL_DESC_NORMAL: Descriptor    0,         0ffffh, DA_DRW    ; Normal 描述符
 LABEL_DESC_CODE32: Descriptor    0, SegCode32Len-1, DA_C+DA_32; 非一致代码段, 32
 LABEL_DESC_CODE16: Descriptor    0,         0ffffh, DA_C      ; 非一致代码段, 16
+LABEL_DESC_CODE_DEST: Descriptor 0,SegCodeDestLen-1, DA_C+DA_32; 非一致代码段,32 作为调用门的目的段
 LABEL_DESC_DATA:   Descriptor    0,      DataLen-1, DA_DRW    ; Data
 LABEL_DESC_STACK:  Descriptor    0,     TopOfStack, DA_DRWA+DA_32; Stack, 32 位
 LABEL_DESC_LDT:    Descriptor       0,        LDTLen - 1, DA_LDT	; 在全局描述表中添加指向LDT的描述符
 LABEL_DESC_VIDEO:  Descriptor  0B8000h,     0ffffh, DA_DRW    ; 显存首地址
+; 门                               目标选择子,偏移,DCount, 属性
+LABEL_CALL_GATE_TEST: Gate SelectorCodeDest,   0,     0, DA_386CGate+DA_DPL0
 ; GDT 结束
 
 GdtLen		equ	$ - LABEL_GDT	; GDT长度
@@ -27,13 +30,15 @@ GdtPtr		dw	GdtLen - 1	; GDT界限
 		dd	0		; GDT基地址
 
 ; GDT 选择子
-SelectorNormal		equ	LABEL_DESC_NORMAL	- LABEL_GDT
-SelectorCode32		equ	LABEL_DESC_CODE32	- LABEL_GDT
-SelectorCode16		equ	LABEL_DESC_CODE16	- LABEL_GDT
-SelectorData		equ	LABEL_DESC_DATA		- LABEL_GDT
-SelectorStack		equ	LABEL_DESC_STACK	- LABEL_GDT
-SelectorLDT			equ	LABEL_DESC_LDT		- LABEL_GDT		;LDT表的选择子
-SelectorVideo		equ	LABEL_DESC_VIDEO	- LABEL_GDT
+SelectorNormal		equ	LABEL_DESC_NORMAL		- LABEL_GDT
+SelectorCode32		equ	LABEL_DESC_CODE32		- LABEL_GDT
+SelectorCode16		equ	LABEL_DESC_CODE16		- LABEL_GDT
+SelectorCodeDest	equ	LABEL_DESC_CODE_DEST	- LABEL_GDT		;门目标段的选择子
+SelectorData		equ	LABEL_DESC_DATA			- LABEL_GDT
+SelectorStack		equ	LABEL_DESC_STACK		- LABEL_GDT
+SelectorLDT			equ	LABEL_DESC_LDT			- LABEL_GDT		;LDT表的选择子
+SelectorVideo		equ	LABEL_DESC_VIDEO		- LABEL_GDT
+SelectorCallGateTest	equ	LABEL_CALL_GATE_TEST	- LABEL_GDT	;门的选择子
 ; END of [SECTION .gdt]
 
 [SECTION .data1]	 ; 数据段
@@ -94,6 +99,16 @@ LABEL_BEGIN:
 	shr	eax, 16
 	mov	byte [LABEL_DESC_CODE32 + 4], al
 	mov	byte [LABEL_DESC_CODE32 + 7], ah
+
+	; 初始化调用门的代码段描述符
+	xor	eax, eax
+	mov	ax, cs
+	shl	eax, 4
+	add	eax, LABEL_SEG_CODE_DEST
+	mov	word [LABEL_DESC_CODE_DEST + 2], ax
+	shr	eax, 16
+	mov	byte [LABEL_DESC_CODE_DEST + 4], al
+	mov	byte [LABEL_DESC_CODE_DEST + 7], ah
 
 	; 初始化数据段描述符,把LABEL_DESC_DATA写入段基址
 	xor	eax, eax
@@ -170,7 +185,7 @@ LABEL_REAL_ENTRY:		; 从保护模式跳回到实模式就到了这里
 	mov	es, ax
 	mov	ss, ax
 
-	mov	sp, [SPValueInRealMode]		;回复栈指针
+	mov	sp, [SPValueInRealMode]		;恢复栈指针
 
 	in	al, 92h			; ┓
 	and	al, 11111101b	; ┣ 关闭 A20 地址线
@@ -219,6 +234,11 @@ LABEL_SEG_CODE32:
 	jmp	.1
 .2:	; 显示完毕
 	call	DispReturn
+
+	; 测试调用门（无特权级变换），将打印字母 'C'，（利用门的选择子跳转，可以提权）
+	call	SelectorCallGateTest:0
+	;call	SelectorCodeDest:0				;（利用门目的段的选择子跳转，就是一个普通的call）
+
 	; LDT表在GDT的选择子载入LDTR寄存器
 	mov	ax, SelectorLDT
 	lldt	ax
@@ -245,6 +265,24 @@ DispReturn:
 
 SegCode32Len	equ	$ - LABEL_SEG_CODE32
 ; END of [SECTION .s32]
+
+[SECTION .sdest]; 调用门目标段
+[BITS	32]
+
+LABEL_SEG_CODE_DEST:
+	;jmp	$
+	mov	ax, SelectorVideo
+	mov	gs, ax			; 视频段选择子(目的)
+
+	mov	edi, (80 * 12 + 0) * 2	; 屏幕第 12 行, 第 0 列。
+	mov	ah, 0Ch			; 0000: 黑底    1100: 红字
+	mov	al, 'C'
+	mov	[gs:edi], ax
+
+	retf
+
+SegCodeDestLen	equ	$ - LABEL_SEG_CODE_DEST
+; END of [SECTION .sdest]
 
 
 ; 16 位代码段. 由 32 位代码段跳入, 跳出后到实模式
@@ -294,7 +332,7 @@ LABEL_CODE_A:
 	mov	ax, SelectorVideo
 	mov	gs, ax			; 视频段选择子(目的)
 
-	mov	edi, (80 * 12 + 0) * 2	; 屏幕第 10 行, 第 0 列。
+	mov	edi, (80 * 13 + 0) * 2	; 屏幕第 13 行, 第 0 列。
 	mov	ah, 0Ch			; 0000: 黑底    1100: 红字
 	mov	al, 'L'
 	mov	[gs:edi], ax
