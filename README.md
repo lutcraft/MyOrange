@@ -27,7 +27,11 @@ make
 
 ![8b33aaddcc1517c7563bd919fe096905.png](https://i.mjj.rip/2023/06/07/8b33aaddcc1517c7563bd919fe096905.png)
 
-在调用门执行结束返回后代码又重新回到了ring3级别，进入死循环停止。
+我们再小小的修改一下调用门的代码，使得程序在调用局部任务的最后调用到调用门的代码返回实模式，最后得到输出，屏幕上打印出“CL3”。
+
+![7963e91bbc10f158c025b9c17d503902.png](https://i.mjj.rip/2023/06/07/7963e91bbc10f158c025b9c17d503902.png)
+
+下面我们将进军我们操作系统的一个重要特性，页式存储。
 # 特权级别转换方法
 
 调用门可以实现从低特权级向高特权级的跳转，要注意维护TSS；ret可以实现从高特权级向低特权级的跳转，要注意维护堆栈信息。
@@ -159,3 +163,7 @@ IDTR 48位中断描述符表寄存器
 LDTR 16位局部描述符表寄存器
 
 TR 16位任务状态段寄存器
+
+# 参考书籍：
+
+[英特尔IA32架构软件开发手册 第一卷](https://www.intel.com/content/www/us/en/architecture-and-technology/64-ia-32-architectures-software-developer-vol-1-manual.html)

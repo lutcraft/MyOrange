@@ -372,7 +372,13 @@ LABEL_SEG_CODE_DEST:
 	mov	al, 'C'
 	mov	[gs:edi], ax
 
-	retf
+	; Load LDT
+	mov	ax, SelectorLDT
+	lldt	ax
+
+	jmp	SelectorLDTCodeA:0	; 跳入局部任务，将打印字母 'L'。
+
+	;retf
 
 SegCodeDestLen	equ	$ - LABEL_SEG_CODE_DEST
 ; END of [SECTION .sdest]
