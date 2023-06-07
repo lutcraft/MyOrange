@@ -1,20 +1,24 @@
-SRC:=boot.asm
-BIN:=$(subst .asm,.com,$(SRC))
+BOOT:=code/boot.asm
+LDR:=code/loader.asm
+BOOT_BIN:=boot.bin
+LDR_BIN:=loader.bin
+FLOPPY:=/mnt/floppy/
 
-.PHONY : run
-run : mount
+
+.PHONY : everything
+
+everything : $(BOOT_BIN) $(LDR_BIN)
+	dd if=boot.bin of=a.img bs=512 count=1 conv=notrunc
+	sudo mount -o loop a.img $(FLOPPY)
+	sudo cp $(LDR_BIN) $(FLOPPY) -v
+	sudo umount $(FLOPPY)
 	bochs -q
 
-mount : $(BIN)
-	sudo mkdir /mnt/floppy/
-	sudo mount -o loop a.img /mnt/floppy/
-	sudo cp $(BIN) /mnt/floppy/ -v
-	sudo cp DEBUG32.EXE /mnt/floppy/ -v
-	sudo umount /mnt/floppy/
-	sudo rm -rf /mnt/floppy/
+$(BOOT_BIN) : $(BOOT)
+	nasm code/boot.asm -o boot.bin
 
-$(BIN) : image
-	nasm code/boot.asm -o boot.com
+$(LDR_BIN) : $(LDR)
+	nasm code/loader.asm -o loader.bin
 
 image :
 	gzip -cd a.img.gz > a.img
