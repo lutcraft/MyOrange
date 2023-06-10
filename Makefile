@@ -1,32 +1,41 @@
 BOOT:=code/boot.asm
 LDR:=code/loader.asm
+KERNEL:=code/kernel.asm
 BOOT_BIN:=boot.bin
 LDR_BIN:=loader.bin
-FLOPPY:=/mnt/floppy/
+KERNEL_BIN:=kernel.bin
 
+IMG:=a.img
+FLOPPY:=/mnt/floppy/
 
 .PHONY : everything
 
-everything : $(BOOT_BIN) $(LDR_BIN)
-	dd if=boot.bin of=a.img bs=512 count=1 conv=notrunc
+everything : $(BOOT_BIN) $(LDR_BIN) $(KERNEL_BIN) image
+	dd if=$(BOOT_BIN) of=$(IMG) bs=512 count=1 conv=notrunc
 	# sudo mkdir $(FLOPPY)
 	sudo mount -o loop a.img $(FLOPPY)
 	sudo cp $(LDR_BIN) $(FLOPPY) -v
+	sudo cp $(KERNEL_BIN) $(FLOPPY) -v
 	sudo umount $(FLOPPY)
 	# sudo rm -rf $(FLOPPY)
 	bochs -q
 
 $(BOOT_BIN) : $(BOOT)
-	nasm code/boot.asm -o boot.bin
+	nasm $< -o $@
 
 $(LDR_BIN) : $(LDR)
-	nasm code/loader.asm -o loader.bin
+	nasm $< -o $@
+
+$(KERNEL_BIN) : $(KERNEL)
+	nasm -f elf -o $(subst .asm,.o,$(KERNEL)) $<
+	ld -m elf_i386 -s -o $@ $(subst .asm,.o,$(KERNEL))
 
 image :
 	gzip -cd a.img.gz > a.img
-	gzip -cd freedos.img.gz > freedos.img
+	# gzip -cd freedos.img.gz > freedos.img
 
 clean :
+	rm -f $(BOOT_BIN) $(LDR_BIN) $(KERNEL_BIN) code/*.o
 	rm -f *.img *.bin *.com
 	sudo umount $(FLOPPY)
 	# sudo rm -rf $(FLOPPY)
