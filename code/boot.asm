@@ -1,3 +1,5 @@
+;引导扇区程序
+;	从磁盘获取“LOADER  BIN”载入内存，并开始执行之
 
 ;%define	_BOOT_DEBUG_	; 做 Boot Sector 时一定将此行注释掉!将此行打开后用 nasm Boot.asm -o Boot.com 做成一个.COM文件易于调试
 
@@ -28,7 +30,7 @@ DeltaSectorNo		equ	17	; DeltaSectorNo = BPB_RsvdSecCnt + (BPB_NumFATs * FATSz) -
 	nop				; 这个 nop 不可少
 
 	; 下面是 FAT12 磁盘的头
-	BS_OEMName	DB 'ForrestY'	; OEM String, 必须 8 个字节
+	BS_OEMName	DB 'MyOrange'	; OEM String, 必须 8 个字节
 	BPB_BytsPerSec	DW 512		; 每扇区字节数
 	BPB_SecPerClus	DB 1		; 每簇多少扇区
 	BPB_RsvdSecCnt	DW 1		; Boot 记录占用多少扇区
@@ -67,14 +69,14 @@ LABEL_START:
 	
 	xor	ah, ah	; ┓
 	xor	dl, dl	; ┣ 软驱复位
-	int	13h	; ┛
+	int	13h		; ┛
 	
 ; 下面在 A 盘的根目录寻找 LOADER.BIN
 	mov	word [wSectorNo], SectorNoOfRootDirectory
 LABEL_SEARCH_IN_ROOT_DIR_BEGIN:
 	cmp	word [wRootDirSizeForLoop], 0	; ┓
-	jz	LABEL_NO_LOADERBIN		; ┣ 判断根目录区是不是已经读完
-	dec	word [wRootDirSizeForLoop]	; ┛ 如果读完表示没有找到 LOADER.BIN
+	jz	LABEL_NO_LOADERBIN				; ┣ 判断根目录区是不是已经读完
+	dec	word [wRootDirSizeForLoop]		; ┛ 如果读完表示没有找到 LOADER.BIN
 	mov	ax, BaseOfLoader
 	mov	es, ax			; es <- BaseOfLoader
 	mov	bx, OffsetOfLoader	; bx <- OffsetOfLoader	于是, es:bx = BaseOfLoader:OffsetOfLoader
@@ -88,7 +90,7 @@ LABEL_SEARCH_IN_ROOT_DIR_BEGIN:
 	mov	dx, 10h
 LABEL_SEARCH_FOR_LOADERBIN:
 	cmp	dx, 0										; ┓循环次数控制,
-	jz	LABEL_GOTO_NEXT_SECTOR_IN_ROOT_DIR	; ┣如果已经读完了一个 Sector,
+	jz	LABEL_GOTO_NEXT_SECTOR_IN_ROOT_DIR			; ┣如果已经读完了一个 Sector,
 	dec	dx											; ┛就跳到下一个 Sector
 	mov	cx, 11
 LABEL_CMP_FILENAME:
@@ -105,10 +107,10 @@ LABEL_GO_ON:
 	jmp	LABEL_CMP_FILENAME	;	继续循环
 
 LABEL_DIFFERENT:
-	and	di, 0FFE0h						; else ┓	di &= E0 为了让它指向本条目开头
-	add	di, 20h							;     ┃
-	mov	si, LoaderFileName					;     ┣ di += 20h  下一个目录条目
-	jmp	LABEL_SEARCH_FOR_LOADERBIN;    ┛
+	and	di, 0FFE0h						; else 		┓	di &= E0 为了让它指向本条目开头
+	add	di, 20h							;     		┃
+	mov	si, LoaderFileName					;     	┣ di += 20h  下一个目录条目
+	jmp	LABEL_SEARCH_FOR_LOADERBIN;    				┛
 
 LABEL_GOTO_NEXT_SECTOR_IN_ROOT_DIR:
 	add	word [wSectorNo], 1
@@ -143,9 +145,9 @@ LABEL_GOON_LOADING_FILE:
 	mov	ah, 0Eh			;  | 每读一个扇区就在 "Booting  " 后面
 	mov	al, '.'			;  | 打一个点, 形成这样的效果:
 	mov	bl, 0Fh			;  | Booting ......
-	int	10h			;  |
-	pop	bx			;  |
-	pop	ax			; /
+	int	10h				;  |
+	pop	bx				;  |
+	pop	ax				; /
 
 	mov	cl, 1
 	call	ReadSector
@@ -223,9 +225,9 @@ ReadSector:
 	; -----------------------------------------------------------------------
 	; 设扇区号为 x
 	;                           ┌ 柱面号 = y >> 1
-	;       x           ┌ 商 y ┤
-	; -------------- => ┤      └ 磁头号 = y & 1
-	;  每磁道扇区数     │
+	;       x           ┌ 商 y  ┤
+	; -------------- => ┤       └ 磁头号 = y & 1
+	;  每磁道扇区数       │
 	;                   └ 余 z => 起始扇区号 = z + 1
 	push	bp
 	mov	bp, sp

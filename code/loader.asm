@@ -328,7 +328,7 @@ LABEL_SEG_CODE32:
 
 	ud2	; should never arrive here ;undefine 让CPU产生invalid opcode异常
 
-	; 测试调用门（无特权级变换），将打印字母 'C'，（利用门的选择子跳转，可以提权）
+	; 测试调用门（ring3->ring0），将打印字母 'C'，（利用门的选择子跳转，可以提权）
 	call	SelectorCallGateTest:0
 	;call	SelectorCodeDest:0				;（利用门目的段的选择子跳转，就是一个普通的call）
 

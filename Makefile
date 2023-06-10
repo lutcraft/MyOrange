@@ -9,9 +9,11 @@ FLOPPY:=/mnt/floppy/
 
 everything : $(BOOT_BIN) $(LDR_BIN)
 	dd if=boot.bin of=a.img bs=512 count=1 conv=notrunc
+	# sudo mkdir $(FLOPPY)
 	sudo mount -o loop a.img $(FLOPPY)
 	sudo cp $(LDR_BIN) $(FLOPPY) -v
 	sudo umount $(FLOPPY)
+	# sudo rm -rf $(FLOPPY)
 	bochs -q
 
 $(BOOT_BIN) : $(BOOT)
@@ -26,3 +28,5 @@ image :
 
 clean :
 	rm -f *.img *.bin *.com
+	sudo umount $(FLOPPY)
+	# sudo rm -rf $(FLOPPY)
