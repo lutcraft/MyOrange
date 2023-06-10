@@ -3,7 +3,8 @@
 
 最终实现的特性包括
 - [x] (进入保护模式)
-- [ ] (分页)
+- [x] (分页)
+- [ ] (用loader启动内核)
 - [ ] (处理中断)
 - [ ] (进程和调度)
 - [ ] (命令行终端)
@@ -19,7 +20,10 @@ a.img是使用bximage制作的软盘映像。直接在项目目录输入
 ```
 make
 ```
-![7ff0ad571458b986db37ac0ffb71a082.png](https://i.mjj.rip/2023/06/10/7ff0ad571458b986db37ac0ffb71a082.png)
+先打印出了内存统计,之后打印出了一个P,代码停止
+
+![3fb370f4e53e2278bc6a5cd5b3833fd6.png](https://i.mjj.rip/2023/06/10/3fb370f4e53e2278bc6a5cd5b3833fd6.png)
+
 
 # boot启动loader，loader启动内核
 
