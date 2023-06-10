@@ -28,7 +28,7 @@ $(LDR_BIN) : $(LDR)
 
 $(KERNEL_BIN) : $(KERNEL)
 	nasm -f elf -o $(subst .asm,.o,$(KERNEL)) $<
-	ld -m elf_i386 -s -o $@ $(subst .asm,.o,$(KERNEL))
+	ld -Ttext 0x30400 -m elf_i386 -s -o $@ $(subst .asm,.o,$(KERNEL))
 
 image :
 	gzip -cd a.img.gz > a.img
