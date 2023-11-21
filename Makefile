@@ -26,9 +26,12 @@ $(BOOT_BIN) : $(BOOT)
 $(LDR_BIN) : $(LDR)
 	nasm $< -o $@
 
-$(KERNEL_BIN) : $(KERNEL)
+$(KERNEL_BIN) : $(KERNEL) code/start.c code/string.asm
 	nasm -f elf -o $(subst .asm,.o,$(KERNEL)) $<
-	ld -Ttext 0x30400 -m elf_i386 -s -o $@ $(subst .asm,.o,$(KERNEL))
+	nasm -f elf -o string.o code/string.asm
+	nasm -f elf -o kliba.o code/kliba.asm
+	gcc -m32 -c -fno-builtin -o start.o  code/start.c
+	ld -Ttext 0x30400 -m elf_i386 -s -o $@ $(subst .asm,.o,$(KERNEL)) string.o start.o kliba.o
 
 image :
 	gzip -cd a.img.gz > a.img
@@ -36,6 +39,6 @@ image :
 
 clean :
 	rm -f $(BOOT_BIN) $(LDR_BIN) $(KERNEL_BIN) code/*.o
-	rm -f *.img *.bin *.com
+	rm -f *.img *.bin *.com *.o
 	sudo umount $(FLOPPY)
 	# sudo rm -rf $(FLOPPY)
