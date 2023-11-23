@@ -16,16 +16,14 @@ BaseOfStack		equ	0100h	; 调试状态下堆栈基地址(栈底, 从这个位置�
 BaseOfStack		equ	07c00h	; Boot状态下堆栈基地址(栈底, 从这个位置向低地址生长)
 %endif
 
-BaseOfLoader		equ	09000h	; LOADER.BIN 被加载到的位置 ----  段地址
-OffsetOfLoader		equ	0100h	; LOADER.BIN 被加载到的位置 ---- 偏移地址
-
+%include	"load.inc"
 ;================================================================================================
 
 	jmp short LABEL_START		; Start to boot.
 	nop				; 这个 nop 不可少
 
 ; 下面是 FAT12 磁盘的头, 之所以包含它是因为下面用到了磁盘的一些信息
-%include	"code/fat12hdr.inc"
+%include	"fat12hdr.inc"
 
 LABEL_START:	
 	mov	ax, cs

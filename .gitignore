@@ -1,3 +1,7 @@
 boot.com
 a.img
 bochsrc
+
+
+*.o
+*.bin
