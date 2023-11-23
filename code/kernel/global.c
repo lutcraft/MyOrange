@@ -1,17 +1,15 @@
 
 /*++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-                            type.h
+                            global.c
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                                                     
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 
-#ifndef	_ORANGES_TYPE_H_
-#define	_ORANGES_TYPE_H_
+#define GLOBAL_VARIABLES_HERE
 
-typedef	unsigned int		u32;
-typedef	unsigned short		u16;
-typedef	unsigned char		u8;
+#include "type.h"
+#include "const.h"
+#include "protect.h"
+#include "proto.h"
+#include "global.h"
 
-typedef	void	(*int_handler)	();
-
-#endif /* _ORANGES_TYPE_H_ */

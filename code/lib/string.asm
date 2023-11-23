@@ -7,7 +7,7 @@ global	memcpy
 
 
 ; ------------------------------------------------------------------------
-; void* memcpy(void* es:pDest, void* ds:pSrc, int iSize);
+; void* memcpy(void* es:p_dst, void* ds:p_src, int size);
 ; 这个函数已经符合C调用规则，可以被C语言使用
 ; ------------------------------------------------------------------------
 memcpy:
