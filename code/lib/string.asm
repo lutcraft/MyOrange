@@ -26,10 +26,10 @@ memcpy:
 	jz	.2		; 计数器为零时跳出
 
 	mov	al, [ds:esi]		; ┓
-	inc	esi			; ┃
-					; ┣ 逐字节移动
+	inc	esi					; ┃
+							; ┣ 逐字节移动
 	mov	byte [es:edi], al	; ┃
-	inc	edi			; ┛
+	inc	edi					; ┛
 
 	dec	ecx		; 计数器减一
 	jmp	.1		; 循环
