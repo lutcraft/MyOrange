@@ -10,7 +10,7 @@
 
 
 /* 存储段描述符/系统段描述符 */
-typedef struct s_descriptor		/* 共 8 个字节 */
+struct descriptor		/* 共 8 个字节 */
 {
 	u16	limit_low;		/* Limit */
 	u16	base_low;		/* Base */
@@ -18,23 +18,26 @@ typedef struct s_descriptor		/* 共 8 个字节 */
 	u8	attr1;			/* P(1) DPL(2) DT(1) TYPE(4) */
 	u8	limit_high_attr2;	/* G(1) D(1) 0(1) AVL(1) LimitHigh(4) */
 	u8	base_high;		/* Base */
-}DESCRIPTOR;
+};
+
+#define	reassembly(high, high_shift, mid, mid_shift, low)	\
+	(((high) << (high_shift)) +				\
+	 ((mid)  << (mid_shift)) +				\
+	 (low))
 
 /* 门描述符 */
-typedef struct s_gate
+struct gate
 {
 	u16	offset_low;	/* Offset Low */
 	u16	selector;	/* Selector */
-	u8	dcount;		/* 该字段只在调用门描述符中有效。如果在利用
-				   调用门调用子程序时引起特权级的转换和堆栈
-				   的改变，需要将外层堆栈中的参数复制到内层
-				   堆栈。该双字计数字段就是用于说明这种情况
-				   发生时，要复制的双字参数的数量。*/
+	u8	dcount;		/* 该字段只在调用门描述符中有效。
+				如果在利用调用门调用子程序时引起特权级的转换和堆栈的改变，需要将外层堆栈中的参数复制到内层堆栈。
+				该双字计数字段就是用于说明这种情况发生时，要复制的双字参数的数量。 */
 	u8	attr;		/* P(1) DPL(2) DT(1) TYPE(4) */
 	u16	offset_high;	/* Offset High */
-}GATE;
+};
 
-typedef struct s_tss {
+struct tss {
 	u32	backlink;
 	u32	esp0;		/* stack pointer to use during interrupt */
 	u32	ss0;		/*   "   segment  "  "    "        "     */
@@ -63,22 +66,22 @@ typedef struct s_tss {
 	u16	trap;
 	u16	iobase;	/* I/O位图基址大于或等于TSS段界限，就表示没有I/O许可位图 */
 	/*u8	iomap[2];*/
-}TSS;
+};
 
 /* GDT */
 /* 描述符索引 */
-#define	INDEX_DUMMY		0	// ┓
-#define	INDEX_FLAT_C		1	// ┣ LOADER 里面已经确定了的.
-#define	INDEX_FLAT_RW		2	// ┃
-#define	INDEX_VIDEO		3	// ┛
+#define	INDEX_DUMMY		0	/* ┓                          */
+#define	INDEX_FLAT_C		1	/* ┣ LOADER 里面已经确定了的. */
+#define	INDEX_FLAT_RW		2	/* ┃                          */
+#define	INDEX_VIDEO		3	/* ┛                          */
 #define	INDEX_TSS		4
 #define	INDEX_LDT_FIRST		5
 /* 选择子 */
-#define	SELECTOR_DUMMY		   0		// ┓
-#define	SELECTOR_FLAT_C		0x08		// ┣ LOADER 里面已经确定了的.
-#define	SELECTOR_FLAT_RW	0x10		// ┃
-#define	SELECTOR_VIDEO		(0x18+3)	// ┛<-- RPL=3
-#define	SELECTOR_TSS		0x20		// TSS. 从外层跳到内存时 SS 和 ESP 的值从里面获得.
+#define	SELECTOR_DUMMY		   0		/* ┓                          */
+#define	SELECTOR_FLAT_C		0x08		/* ┣ LOADER 里面已经确定了的. */
+#define	SELECTOR_FLAT_RW	0x10		/* ┃                          */
+#define	SELECTOR_VIDEO		(0x18+3)	/* ┛<-- RPL=3                 */
+#define	SELECTOR_TSS		0x20		/* TSS. 从外层跳到内存时 SS 和 ESP 的值从里面获得. */
 #define SELECTOR_LDT_FIRST	0x28
 
 #define	SELECTOR_KERNEL_CS	SELECTOR_FLAT_C
@@ -87,10 +90,14 @@ typedef struct s_tss {
 
 /* 每个任务有一个单独的 LDT, 每个 LDT 中的描述符个数: */
 #define LDT_SIZE		2
+/* descriptor indices in LDT */
+#define INDEX_LDT_C             0
+#define INDEX_LDT_RW            1
 
 /* 描述符类型值说明 */
 #define	DA_32			0x4000	/* 32 位段				*/
 #define	DA_LIMIT_4K		0x8000	/* 段界限粒度为 4K 字节			*/
+#define	LIMIT_4K_SHIFT		  12
 #define	DA_DPL0			0x00	/* DPL = 0				*/
 #define	DA_DPL1			0x20	/* DPL = 1				*/
 #define	DA_DPL2			0x40	/* DPL = 2				*/
@@ -145,10 +152,14 @@ typedef struct s_tss {
 #define	INT_VECTOR_IRQ0			0x20
 #define	INT_VECTOR_IRQ8			0x28
 
+/* 系统调用 */
+#define INT_VECTOR_SYS_CALL             0x90
+
 /* 宏 */
 /* 线性地址 → 物理地址 */
-#define vir2phys(seg_base, vir)	(u32)(((u32)seg_base) + (u32)(vir))
+//#define vir2phys(seg_base, vir)	(u32)(((u32)seg_base) + (u32)(vir))
 
-PUBLIC void disp_int(int input);
+/* seg:off -> linear addr */
+#define makelinear(seg,off) (u32)(((u32)(seg2linear(seg))) + (u32)(off))
 
 #endif /* _ORANGES_PROTECT_H_ */
